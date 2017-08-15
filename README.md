@@ -8,7 +8,7 @@ Program has 2 modes, official and unofficial. In official mode, program for ever
 * PyQt4
 
 ### How do I get ACStand?
-Download this project and run
+Download this project and run:
 python3 stand.py
 
 ### PyQt4
