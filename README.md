@@ -26,7 +26,7 @@ I had little problems with installing PyQt4 so here is tutorial about it (this i
 * sudo make install
 
 ### Screenshots
-![Screenshot of ACStand](http://codeforces.com/predownloaded/90/91/9091679bd4cfc12a45881be92e14d00aed275891.png)
+![Screenshot of ACStand](http://codeforces.com/predownloaded/4f/56/4f56eea8fa201451baee0eb2ea5606cee91ee728.png)
 
 ### Ways you can help:
 You can report bugs or give new ideas. Also, I will be very happy if you make this program more popular by telling your friends about it.
