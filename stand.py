@@ -10,8 +10,6 @@ import glob
 import bs4
 import os
 
-MAX_USERS_IN_LIST = 50
-
 class TreeWidgetItem(QtGui.QTreeWidgetItem):
     def __init__(self, parent=None):
         QtGui.QTreeWidgetItem.__init__(self, parent)
@@ -49,12 +47,14 @@ class getPointsThread( QThread ):
         return ret
 
     def get_end_time(self):
+        self.emit(SIGNAL("add_in_log(QString)"), "Fetching... contest end time")
         self.soup = self.get_soup(self.link)
         l = self.soup.select('time')
         s = str(l[1].contents)[2:-2].split(' ')
         self.end_time = self.parse_date(s)
 
     def get_user_color(self, username):
+        self.emit(SIGNAL("add_in_log(QString)"), "Fetching... " + username + " rating")
         self.soup = self.get_soup("https://atcoder.jp/user/"+username)
         x = self.soup.findAll("dl", { "class" : "dl-horizontal" })
         rating = 0
@@ -85,9 +85,9 @@ class getPointsThread( QThread ):
 
     def get_user_points(self, username):
         page = 1
+        self.emit(SIGNAL("add_in_log(QString)"), "Fetching... " + username + '-' + str(page))
         self.soup = self.get_soup(self.link + "/submissions/all/" + str(page) + "?user_screen_name="+username)
         while not len(self.soup.findAll(text = "There is no submission.")):
-         #   print (username, page)
             table = self.soup.find("table", { "class" : "table table-bordered table-striped table-wb"})
             rows = table.findChildren('tr')
 
@@ -114,12 +114,12 @@ class getPointsThread( QThread ):
                 self.users[username][task] = max(self.users[username][task], points)
                 self.users[username]["total"] += self.users[username][task] - prev
                 
-            
-            #break
             page += 1
+            self.emit(SIGNAL("add_in_log(QString)"), "Fetching... " + username + '-' + str(page))
             self.soup = self.get_soup(self.link + "/submissions/all/" + str(page) + "?user_screen_name="+username)
 
     def run(self):
+        self.emit(SIGNAL("add_in_log(QString)"), "Start!")
         self.get_end_time()
         threads = []
         threads_colors = []
@@ -136,8 +136,8 @@ class getPointsThread( QThread ):
 
         self.emit(SIGNAL("users_dict"), self.users)
 
-        for user in self.users:
-            print (user, self.users[user])
+        #for user in self.users:
+        #    print (user, self.users[user])
 
 class MainWindow( QtGui.QMainWindow ):
     def __init__ (self):
@@ -145,7 +145,7 @@ class MainWindow( QtGui.QMainWindow ):
         uic.loadUi( 'gui.ui', self )
 
         self.load_lists()
-
+        
         self.displayButton.clicked.connect( self.display )
         self.createListButton.clicked.connect( self.createList )
         self.donateButton.clicked.connect( self.donate )
@@ -153,8 +153,16 @@ class MainWindow( QtGui.QMainWindow ):
     def message(self, _message):
         QtGui.QMessageBox.information(self, "Status", _message)
 
+    def add_in_log(self, s):
+        self.listWidget.addItem(s)
+        self.listWidget.scrollToItem(self.listWidget.item(self.listWidget.count()-1))
+
     def done(self):
-        self.message("kraj")
+        self.displayButton.setEnabled(True)
+        self.stopButton.setEnabled(False)
+
+        self.add_in_log("Done!")
+        self.add_in_log("---------------------------------")
 
     def donate(self):
         webbrowser.open("https://www.paypal.me/mkisic", new=2)
@@ -230,8 +238,18 @@ class MainWindow( QtGui.QMainWindow ):
         self.get_users_from_list()
         
         self.get_points_thread = getPointsThread(self.usernames, self.users, self.link, self.official)
+        
         self.connect(self.get_points_thread, SIGNAL("users_dict"), self.addInTree)
+        self.connect(self.get_points_thread, SIGNAL("finished()"), self.done)
+        self.connect(self.get_points_thread, SIGNAL("add_in_log(QString)"), self.add_in_log)
+
         self.get_points_thread.start()
+
+        self.stopButton.setEnabled(True)
+
+        self.stopButton.clicked.connect(self.get_points_thread.terminate)
+
+        self.displayButton.setEnabled(False)
 
     def load_lists(self):
         self.listBox.clear()
@@ -239,7 +257,6 @@ class MainWindow( QtGui.QMainWindow ):
         for name in l:
             name = name[6::]
             self.listBox.addItem(name)
-            
 
     def add_list(self, s):
         self.listBox.addItem(s)
@@ -296,7 +313,6 @@ class SubWindow( MainWindow ):
             self.message("Name of the list contains forbidden characters!")
             return
 
-        
         self.users = []
         try:
             f = open("lists/"+self.list_name, "r")
@@ -323,10 +339,6 @@ class SubWindow( MainWindow ):
         for user in self.users:
             if len(user):
                 l.append(user+"\n")
-
-        if len(l) > MAX_USERS_IN_LIST:
-            self.message("Too many users in list!")
-            return
 
         f = open("lists/"+self.list_name, "w")
         f.writelines(l)
