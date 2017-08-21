@@ -1,4 +1,5 @@
 from PyQt4 import QtGui, uic
+from PyQt4.QtCore import QThread, SIGNAL
 from threading import Thread
 import urllib.request as req
 import webbrowser
@@ -21,23 +22,20 @@ class TreeWidgetItem(QtGui.QTreeWidgetItem):
             return int(self.text(column)) < int(otherItem.text(column))
         except ValueError:
             return self.text(column).lower() < otherItem.text(column).lower()
-    
-class MainWindow( QtGui.QMainWindow ):
-    def __init__ (self):
-        super( MainWindow, self ).__init__()
-        uic.loadUi( 'gui.ui', self )
 
-        self.load_lists()
+class getPointsThread( QThread ):
+    def __init__ (self, usernames, users, link, official):
+        QThread.__init__(self)
+        self.usernames = usernames
+        self.users = users
+        self.link = link
+        self.official = official
 
-        self.displayButton.clicked.connect( self.display )
-        self.createListButton.clicked.connect( self.createList )
-        self.donateButton.clicked.connect( self.donate )
+    def __del__ (self):
+        self.wait()
 
-    def donate(self):
-        webbrowser.open("https://www.paypal.me/mkisic", new=2)
-
-    def createList(self):
-        ListGUI.show()
+    def message(self, _message):
+        QtGui.QMessageBox.information(self, "Status", _message)
 
     def get_soup(self, url):
         ret = bs4.BeautifulSoup(req.urlopen(url).read(), 'lxml')
@@ -56,21 +54,6 @@ class MainWindow( QtGui.QMainWindow ):
         s = str(l[1].contents)[2:-2].split(' ')
         self.end_time = self.parse_date(s)
 
-    def get_users_from_list(self):
-        self.users = {}
-        f = open("lists/" + self.listName, "r")
-        self.usernames = f.readlines()
-        f.close()
-        for i in range(len(self.usernames)):
-            if self.usernames[i][-1] == '\n':
-                self.usernames[i] = self.usernames[i][0:-1]
-
-        for username in self.usernames:
-            self.users[username]={"user_screen_name":username,"A":0,"B":0,"C":0,"D":0,"E":0,"F":0,"total":0,"color":"#000000"}
-
-        #for user in self.users:
-        #    print (user, self.users[user])
-    
     def get_user_color(self, username):
         self.soup = self.get_soup("https://atcoder.jp/user/"+username)
         x = self.soup.findAll("dl", { "class" : "dl-horizontal" })
@@ -99,7 +82,6 @@ class MainWindow( QtGui.QMainWindow ):
 
         #print (username, rating, color)
         self.users[username]["color"] = color
-
 
     def get_user_points(self, username):
         page = 1
@@ -137,13 +119,71 @@ class MainWindow( QtGui.QMainWindow ):
             page += 1
             self.soup = self.get_soup(self.link + "/submissions/all/" + str(page) + "?user_screen_name="+username)
 
+    def run(self):
+        self.get_end_time()
+        threads = []
+        threads_colors = []
+        for username in self.usernames:
+            t = Thread(target = self.get_user_points, args=(username,))
+            t.start()
+            threads.append(t)
+            t = Thread(target = self.get_user_color, args=(username,))
+            t.start()
+            threads.append(t)
 
+        for t in threads:
+            t.join()
+
+        self.emit(SIGNAL("users_dict"), self.users)
+
+        for user in self.users:
+            print (user, self.users[user])
+
+class MainWindow( QtGui.QMainWindow ):
+    def __init__ (self):
+        super( MainWindow, self ).__init__()
+        uic.loadUi( 'gui.ui', self )
+
+        self.load_lists()
+
+        self.displayButton.clicked.connect( self.display )
+        self.createListButton.clicked.connect( self.createList )
+        self.donateButton.clicked.connect( self.donate )
+
+    def message(self, _message):
+        QtGui.QMessageBox.information(self, "Status", _message)
+
+    def done(self):
+        self.message("kraj")
+
+    def donate(self):
+        webbrowser.open("https://www.paypal.me/mkisic", new=2)
+
+    def createList(self):
+        ListGUI.show()
+
+    def get_soup(self, url):
+        ret = bs4.BeautifulSoup(req.urlopen(url).read(), 'lxml')
+        req.urlopen(url).close()
+        return ret
+
+    def get_users_from_list(self):
+        self.users = {}
+        f = open("lists/" + self.listName, "r")
+        self.usernames = f.readlines()
+        f.close()
+        for i in range(len(self.usernames)):
+            if self.usernames[i][-1] == '\n':
+                self.usernames[i] = self.usernames[i][0:-1]
+
+        for username in self.usernames:
+            self.users[username]={"user_screen_name":username,"A":0,"B":0,"C":0,"D":0,"E":0,"F":0,"total":0,"color":"#000000"}
 
         #for user in self.users:
         #    print (user, self.users[user])
-
-
-    def addInTree(self):
+    
+    def addInTree(self, usernames):
+        self.usernames = usernames
         self.displayTree.clear()
         l = []
         for user in self.users:
@@ -175,21 +215,6 @@ class MainWindow( QtGui.QMainWindow ):
         self.displayTree.addTopLevelItems(l)
         self.displayTree.sortItems(7, 1)
 
-    def generate_points(self):
-        threads = []
-        threads_colors = []
-        for username in self.usernames:
-            t = Thread(target = self.get_user_points, args=(username,))
-            t.start()
-            threads.append(t)
-            t = Thread(target = self.get_user_color, args=(username,))
-            t.start()
-            threads.append(t)
-
-        for t in threads:
-            t.join()
-
-
     def display(self):
         self.listName = self.listBox.currentText()
         self.contestType = self.contestTypeBox.currentText()
@@ -200,14 +225,13 @@ class MainWindow( QtGui.QMainWindow ):
         self.link = self.contestType + self.contestNum
         self.link = "https://" + self.link + ".contest.atcoder.jp"
 
-        self.get_end_time()
         self.official = self.officialButton.isChecked()
 
         self.get_users_from_list()
         
-        self.generate_points()
-
-        self.addInTree()
+        self.get_points_thread = getPointsThread(self.usernames, self.users, self.link, self.official)
+        self.connect(self.get_points_thread, SIGNAL("users_dict"), self.addInTree)
+        self.get_points_thread.start()
 
     def load_lists(self):
         self.listBox.clear()
