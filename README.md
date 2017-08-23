@@ -31,5 +31,5 @@ I had little problems with installing PyQt4 so here is tutorial about it (this i
 ### Ways you can help:
 You can report bugs or give new ideas. Also, I will be very happy if you make this program more popular by telling your friends about it.
 
-And for the end, if you like ACStand, you can buy me a drink with donation [here](https://www.paypal.me/mkisic) :D 
+And for the end, if you like ACStand, you can buy me a drink with donation [here](https://www.paypal.me/mkisic) :D
 
