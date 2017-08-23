@@ -49,9 +49,13 @@ class getPointsThread( QThread ):
     def get_end_time(self):
         self.emit(SIGNAL("add_in_log(QString)"), "Fetching... contest end time")
         self.soup = self.get_soup(self.link)
+        if len(self.soup.findAll(text = "404")):
+            self.emit(SIGNAL("add_in_log(QString)"), "Contest does not exist!")
+            return 0
         l = self.soup.select('time')
         s = str(l[1].contents)[2:-2].split(' ')
         self.end_time = self.parse_date(s)
+        return 1
 
     def get_user_color(self, username):
         self.emit(SIGNAL("add_in_log(QString)"), "Fetching... " + username + " rating")
@@ -120,7 +124,8 @@ class getPointsThread( QThread ):
 
     def run(self):
         self.emit(SIGNAL("add_in_log(QString)"), "Start!")
-        self.get_end_time()
+        if not self.get_end_time():
+            return
         threads = []
         threads_colors = []
         for username in self.usernames:

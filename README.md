@@ -1,7 +1,7 @@
 # ACStand
 
 ACStand is program in which you can display results of any AtCoder contest for some list of users which you made before. When I say results, I mean only points which users scored, without penalty. I will add penalty in near future.
-Program has 2 modes, official and unofficial. In official mode, program for every user consider only submissions which were submitted during the contest, in unofficial consider all submissions.
+Program has 2 modes, official and unofficial. In official mode, program for every user consider only submissions which were submitted during the contest, in unofficial it consider all submissions.
 
 ### Requirements:
 * Python 3
